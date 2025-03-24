@@ -1,0 +1,52 @@
+services:
+  postgresql:
+    image: postgres:16.4-alpine
+    container_name: postgresql
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgresql:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4:8.14
+    container_name: pgadmin4
+    depends_on:
+      - postgresql
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: pgadmin@pgadmin.com
+      PGADMIN_DEFAULT_PASSWORD: pgadmin
+    ports:
+      - "6432:80"
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+
+  backend:
+    container_name: backend
+    depends_on:
+      - postgresql
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+
+  frontend:
+    container_name: frontend
+    depends_on:
+      - backend
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+
+volumes:
+  postgresql:
+  pgadmin:
