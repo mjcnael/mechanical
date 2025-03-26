@@ -1,6 +1,6 @@
 services:
   postgresql:
-    image: postgres:16.4-alpine
+    image: postgres
     container_name: postgresql
     restart: always
     environment:
@@ -13,7 +13,7 @@ services:
       - postgresql:/var/lib/postgresql/data
 
   pgadmin:
-    image: dpage/pgadmin4:8.14
+    image: dpage/pgadmin4
     container_name: pgadmin4
     depends_on:
       - postgresql
