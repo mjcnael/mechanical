@@ -14,6 +14,8 @@ git clone https://github.com/mjcnael/mechanical.git
 
 ## Launch project
 
+In project root:
+
 ```bash
 docker compose up
 ```

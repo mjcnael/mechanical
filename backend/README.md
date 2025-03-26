@@ -5,5 +5,7 @@
 2. Install backend dependencies:
 
 ```bash
+cd backend
 uv sync
+cd ..
 ```
