@@ -22,7 +22,7 @@ docker compose up
 
 ## API
 
-API documentantion (Swagger UI) located at:
+API documentation (Swagger UI) located at:
 
 http://localhost:8000/docs
 
