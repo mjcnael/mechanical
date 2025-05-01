@@ -16,6 +16,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 EXPOSE 8000
 
-ENV PATH="/winorient/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH"
 
 CMD ["uv", "run", "src/main.py"]

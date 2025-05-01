@@ -301,7 +301,7 @@ const TasksTable = (props: TasksTableProps) => {
           status: row.getValue("status"),
         };
 
-        const isEditable = task.status === "Не выполнено";
+        const isEditable = task.status === "Отменено";
 
         return (
           <DropdownMenu>
@@ -345,7 +345,7 @@ const TasksTable = (props: TasksTableProps) => {
                     });
                   }}
                 >
-                  Выполнить
+                  Выполнено
                 </DropdownMenuItem>
 
                 {props.editable ? (
@@ -358,7 +358,7 @@ const TasksTable = (props: TasksTableProps) => {
                       });
                     }}
                   >
-                    Отменить
+                    Отменено
                   </DropdownMenuItem>
                 ) : (
                   <></>

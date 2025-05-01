@@ -21,7 +21,7 @@ app.include_router(foremen_router)
 app.include_router(technicians_router)
 app.include_router(technician_tasks_router)
 
-origins = ["*"]
+origins = ["http://localhost:3000"]
 
 app.add_middleware(
     CORSMiddleware,
