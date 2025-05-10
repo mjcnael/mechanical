@@ -16,12 +16,12 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Auth Service",
-    root_path="/api/auth-service",
+    root_path="/api",
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
-)      #правка 
+    lifespan=lifespan,
+)
 
 app.include_router(foremen_router)
 app.include_router(technicians_router)
