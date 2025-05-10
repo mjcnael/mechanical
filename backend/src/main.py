@@ -15,7 +15,13 @@ async def lifespan(app: FastAPI):
     await database.disconnect()
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    title="Auth Service",
+    root_path="/api/auth-service",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+)      #правка 
 
 app.include_router(foremen_router)
 app.include_router(technicians_router)
