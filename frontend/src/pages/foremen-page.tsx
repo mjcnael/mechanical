@@ -476,7 +476,10 @@ const ForemenPage = () => {
               </Dialog>
 
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent aria-describedby={undefined}>
+                <DialogContent
+                  aria-describedby={undefined}
+                  className="min-w-[80%]"
+                >
                   <DialogTitle>Добавить задачу</DialogTitle>
                   <Form {...task_form}>
                     <form onSubmit={task_form.handleSubmit(onTaskCreate)}>
@@ -666,7 +669,7 @@ const ForemenPage = () => {
                                     </Button>
                                   </FormControl>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-[465px] p-0">
+                                <PopoverContent className="w-[1076px] p-0">
                                   <Command>
                                     <CommandInput
                                       placeholder="Поиск..."
@@ -775,7 +778,7 @@ const ForemenPage = () => {
                                     </Button>
                                   </FormControl>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-[465px] p-0">
+                                <PopoverContent className="w-[1076px] p-0">
                                   <Command>
                                     <CommandInput
                                       placeholder="Поиск..."

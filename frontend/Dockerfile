@@ -5,7 +5,7 @@ WORKDIR /app
 COPY bun.lock .
 COPY package.json .
 
-RUN bun install --force
+RUN bun install
 
 COPY . .
 
