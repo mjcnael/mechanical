@@ -43,6 +43,7 @@ class Postgresql:
                 technician_id INTEGER NOT NULL REFERENCES technicians(technician_id),
                 task_description VARCHAR(500) NOT NULL,
                 status VARCHAR(20) NOT NULL CHECK (status IN ('Не выполнено', 'Выполнено', 'Отменено'))
+                important BOOLEAN NOT NULL DEFAULT FALSE
             );
             """,
         ]

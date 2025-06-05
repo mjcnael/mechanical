@@ -15,6 +15,7 @@ class TechnicianTask(BaseModel):
     technician_id: int
     task_description: str
     status: str
+    important: bool
 
 
 class TechnicianTaskCreate(BaseModel):
@@ -24,9 +25,11 @@ class TechnicianTaskCreate(BaseModel):
     foreman_id: int
     technician_id: int
     task_description: str
+    important: bool
 
 
 class TechnicianTaskUpdate(BaseModel):
     start_time: str
     end_time: str
     task_description: str
+    important: bool
