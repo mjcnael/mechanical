@@ -1,5 +1,5 @@
 import { apiInstance } from "@/shared/api/api-instance";
-import { useMutation, useQuery, useQueryClient } from "react-query";
+import {useMutation, useQuery, useQueryClient} from "react-query";
 import {
   ColumnDef,
   flexRender,
@@ -39,7 +39,7 @@ import {
 } from "@/shared/ui/default/form";
 import { Input } from "@/shared/ui/default/input";
 import { useForm } from "react-hook-form";
-import { useState } from "react";
+import { useState} from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -49,13 +49,17 @@ import {
   dateTimeFormat,
   fetchForemen,
   fetchTechnicians,
+  FilterDto,
 } from "@/pages/foremen-page";
 import { TechnicianDto } from "./technicians-table";
 import { ForemanDto } from "./foremen-table";
 import { useParams } from "react-router-dom";
 
-async function fetchTasks() {
-  const { data } = await apiInstance.get("/technician-tasks");
+async function fetchTasks(props: FilterDto) {
+  const { data } = await apiInstance.get("/technician-tasks", {
+    method: "GET",
+    params: props
+  });
   return data;
 }
 
@@ -121,14 +125,14 @@ const FormSchema = z
   );
 
 type TasksTableProps = {
-  editable?: boolean;
+  editable?: boolean,
+  filter: FilterDto
 };
 
 const TasksTable = (props: TasksTableProps) => {
   const { id } = useParams();
-
   const query_fn = props.editable
-    ? fetchTasks
+    ? () => fetchTasks(props.filter)
     : () => fetchTechnicianTasks(id!);
 
   const { data = [], isLoading } = useQuery("technician-tasks", query_fn);

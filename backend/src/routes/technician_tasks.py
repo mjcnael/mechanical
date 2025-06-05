@@ -5,7 +5,9 @@ from schemas.technician_task import (
     TechnicianTask,
     TechnicianTaskCreate,
     TechnicianTaskUpdate,
+    TechnicianTaskFilter
 )
+from pydantic.main import create_model
 
 technician_tasks_router = APIRouter(
     prefix="/technician-tasks", tags=["Technician Tasks"]
@@ -13,8 +15,24 @@ technician_tasks_router = APIRouter(
 
 
 @technician_tasks_router.get("", response_model=list[TechnicianTask])
-async def get_technician_tasks():
-    return await technician_tasks.get_technician_tasks()
+async def get_technician_tasks(
+        date_start: str = "",
+        date_end: str = "",
+        workshop: str = "",
+        technician_name: str = "",
+        foreman_name: str = "",
+        status: str = ""):
+    d = {
+        'date_start': date_start,
+        'date_end': date_end,
+        'workshop': workshop,
+        'technician_name': technician_name,
+        'foreman_name': foreman_name,
+        'status': status
+
+    }
+    prop = TechnicianTaskFilter(**d)
+    return await technician_tasks.get_technician_tasks(prop)
 
 
 @technician_tasks_router.get("/{task_id}", response_model=TechnicianTask)

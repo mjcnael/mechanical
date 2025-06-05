@@ -36,21 +36,16 @@ import {
 import { Textarea } from "@/shared/ui/default/textarea";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Dialog } from "@radix-ui/react-dialog";
-import { Check, ChevronsUpDown } from "lucide-react";
-import { useState } from "react";
+import {Check, ChevronsUpDown, Funnel} from "lucide-react";
+import {useState} from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "react-query";
 import { toast } from "sonner";
 import { z } from "zod";
-
 import { DateTime } from "luxon";
 import TasksTable from "@/features/tasks-table";
+import formatDateToInput from "@/utils/formatDateToInput.tsx";
 export const dateTimeFormat = "dd.MM.yyyy HH:mm";
-
-function formatDateToInput(date) {
-  const pad = (num) => String(num).padStart(2, "0");
-  return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
 
 export type ForemanCreateDto = {
   full_name: string;
@@ -75,6 +70,15 @@ export type TaskCreateDto = {
   task_description: string;
 };
 
+export type FilterDto = {
+  date_start: string;
+  date_end: string;
+  workshop: string;
+  foreman_name: string;
+  technician_name: string;
+  status: string;
+};
+
 export async function fetchForemen() {
   const { data } = await apiInstance.get("/foremen");
   return data;
@@ -96,6 +100,7 @@ async function createTechnician(technician: TechnicianCreateDto) {
 async function createTask(task: TaskCreateDto) {
   return await apiInstance.post("/technician-tasks", task);
 }
+
 
 const ForemanFormSchema = z.object({
   full_name: z
@@ -163,6 +168,33 @@ const TaskFormSchema = z
     },
   );
 
+
+const FilterTaskSchema = z
+  .object({
+    date_start: z.coerce
+      .string()
+      .refine(
+        (value) => DateTime.fromFormat(value, dateTimeFormat).isValid || value=="",
+        "Неверный формат даты и времени (ДД.ММ.ГГГГ ЧЧ:ММ)",
+      ),
+    date_end: z.coerce
+        .string()
+        .refine(
+          (value) => DateTime.fromFormat(value, dateTimeFormat).isValid || value=="",
+          "Неверный формат даты и времени (ДД.ММ.ГГГГ ЧЧ:ММ)",
+        ),
+    workshop: z.coerce
+      .string()
+      .max(100, "Название цеха не должно быть длинее 100 символов"),
+    technician_name: z.coerce
+      .string()
+      .max(50, "ФИО рабочего не должно быть длинее 50 символов"),
+    foreman_name: z.coerce
+      .string()
+      .max(50, "ФИО начальника не должно быть длинее 50 символов"),
+    status: z.coerce.string()
+  });
+
 const ForemenPage = () => {
   const { data: foremenData = [], isLoading: isForemenLoading } = useQuery(
     "foremen",
@@ -172,9 +204,19 @@ const ForemenPage = () => {
     useQuery("technicians", fetchTechnicians);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const [openForemen, setOpenForemen] = useState(false);
   const [openTechnicians, setOpenTechnicians] = useState(false);
   const [openWorkshop, setOpenWorkshop] = useState(false);
+  const [filterData, setFilterData] = useState({
+    date_start: "",
+    date_end: "",
+    workshop: "",
+    foreman_name: "",
+    technician_name: "",
+    status: "",
+  });
+
   const queryClient = useQueryClient();
 
   const foremanCreateMutation = useMutation(
@@ -251,6 +293,17 @@ const ForemenPage = () => {
     },
   });
 
+  const filter_form = useForm<z.infer<typeof FilterTaskSchema>>({
+    resolver: zodResolver(FilterTaskSchema),
+    defaultValues:{
+      date_start: "",
+      date_end: "",
+      workshop: "",
+      status: "",
+      technician_name: "",
+      foreman_name: ""
+    }
+  });
   const onForemanCreate = (foreman: ForemanCreateDto) => {
     foremanCreateMutation.mutate(foreman);
   };
@@ -262,6 +315,17 @@ const ForemenPage = () => {
   const onTaskCreate = (task: TaskCreateDto) => {
     taskCreateMutation.mutate(task);
   };
+
+  const onFilterApplied = (filter : FilterDto)=> {
+    setFilterData({...filter});
+    setIsFilterDialogOpen(false);
+  }
+
+  const resetFilterForm = () => {
+    filter_form.reset();
+    setFilterData(filter_form.getValues());
+  }
+
 
   return (
     <div className="p-6">
@@ -279,11 +343,137 @@ const ForemenPage = () => {
           </CardHeader>
           <CardContent>
             <TabsContent value="tasks">
-              <div className="mb-4">
-                <Button variant="outline" onClick={() => setIsDialogOpen(true)}>
-                  Добавить задачу
-                </Button>
+              <div className="flex mb-4 justify-between">
+                <div>
+                  <Button variant="outline" onClick={() => setIsDialogOpen(true)}>
+                    Добавить задачу
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={resetFilterForm} className="underline" variant="ghost">
+                    Сбросить фильтры
+                  </Button>
+                  <Button variant="outline" onClick={() => setIsFilterDialogOpen(true)}>
+                    <Funnel className="text-primary"/>
+                  </Button>
+                </div>
               </div>
+
+
+              {/*Диалоговое окно для фильтров*/}
+              <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
+                <DialogContent aria-describedby={undefined}>
+                  <DialogTitle>Фильтры</DialogTitle>
+                  <Form {...filter_form}>
+                    <form onSubmit={filter_form.handleSubmit(onFilterApplied)}>
+                      <div className="space-y-2">
+                        <div className="flex justify-between gap-3">
+                          <FormField
+                          control={filter_form.control}
+                          name="date_start"
+                          render={({ field }) => (
+                            <FormItem className="w-full">
+                              <FormLabel>Дата начала от</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder="19.02.2025 19:00"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}/>
+                            <FormField
+                                control={filter_form.control}
+                                name="date_end"
+                                render={({ field }) => (
+                                    <FormItem className="w-full">
+                                        <FormLabel>Дата начала до</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="text"
+                                                placeholder="20.02.2025 20:00"
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
+                        </div>
+                        <FormField
+                          control={filter_form.control}
+                          name="workshop"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Название цеха</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder="Сталелитейный"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}/>
+                        <FormField
+                          control={filter_form.control}
+                          name="technician_name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Работник</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder="Фамилия Имя Отчество"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}/>
+                        <FormField
+                          control={filter_form.control}
+                          name="foreman_name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Начальник цеха</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder="Фамилия Имя Отчество"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}/>
+                        <FormField
+                          control={filter_form.control}
+                          name="status"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Статус</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="text"
+                                  placeholder="Выполнено"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}/>
+                      </div>
+
+                      <Button type="submit" className="mt-4">
+                        Применить
+                      </Button>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
 
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogContent aria-describedby={undefined}>
@@ -660,7 +850,7 @@ const ForemenPage = () => {
                 </DialogContent>
               </Dialog>
 
-              <TasksTable editable />
+              <TasksTable filter={filterData} editable />
             </TabsContent>
 
             <TabsContent value="foremen">
