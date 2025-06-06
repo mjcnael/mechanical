@@ -36,8 +36,8 @@ import {
 import { Textarea } from "@/shared/ui/default/textarea";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Dialog } from "@radix-ui/react-dialog";
-import {Check, ChevronsUpDown, Funnel} from "lucide-react";
-import {useState} from "react";
+import { Check, ChevronsUpDown, Funnel } from "lucide-react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "react-query";
 import { toast } from "sonner";
@@ -100,7 +100,6 @@ async function createTechnician(technician: TechnicianCreateDto) {
 async function createTask(task: TaskCreateDto) {
   return await apiInstance.post("/technician-tasks", task);
 }
-
 
 const ForemanFormSchema = z.object({
   full_name: z
@@ -168,32 +167,32 @@ const TaskFormSchema = z
     },
   );
 
-
-const FilterTaskSchema = z
-  .object({
-    date_start: z.coerce
-      .string()
-      .refine(
-        (value) => DateTime.fromFormat(value, dateTimeFormat).isValid || value=="",
-        "Неверный формат даты и времени (ДД.ММ.ГГГГ ЧЧ:ММ)",
-      ),
-    date_end: z.coerce
-        .string()
-        .refine(
-          (value) => DateTime.fromFormat(value, dateTimeFormat).isValid || value=="",
-          "Неверный формат даты и времени (ДД.ММ.ГГГГ ЧЧ:ММ)",
-        ),
-    workshop: z.coerce
-      .string()
-      .max(100, "Название цеха не должно быть длинее 100 символов"),
-    technician_name: z.coerce
-      .string()
-      .max(50, "ФИО рабочего не должно быть длинее 50 символов"),
-    foreman_name: z.coerce
-      .string()
-      .max(50, "ФИО начальника не должно быть длинее 50 символов"),
-    status: z.coerce.string()
-  });
+const FilterTaskSchema = z.object({
+  date_start: z.coerce
+    .string()
+    .refine(
+      (value) =>
+        DateTime.fromFormat(value, dateTimeFormat).isValid || value == "",
+      "Неверный формат даты и времени (ДД.ММ.ГГГГ ЧЧ:ММ)",
+    ),
+  date_end: z.coerce
+    .string()
+    .refine(
+      (value) =>
+        DateTime.fromFormat(value, dateTimeFormat).isValid || value == "",
+      "Неверный формат даты и времени (ДД.ММ.ГГГГ ЧЧ:ММ)",
+    ),
+  workshop: z.coerce
+    .string()
+    .max(100, "Название цеха не должно быть длинее 100 символов"),
+  technician_name: z.coerce
+    .string()
+    .max(50, "ФИО рабочего не должно быть длинее 50 символов"),
+  foreman_name: z.coerce
+    .string()
+    .max(50, "ФИО начальника не должно быть длинее 50 символов"),
+  status: z.coerce.string(),
+});
 
 const ForemenPage = () => {
   const { data: foremenData = [], isLoading: isForemenLoading } = useQuery(
@@ -295,14 +294,14 @@ const ForemenPage = () => {
 
   const filter_form = useForm<z.infer<typeof FilterTaskSchema>>({
     resolver: zodResolver(FilterTaskSchema),
-    defaultValues:{
+    defaultValues: {
       date_start: "",
       date_end: "",
       workshop: "",
       status: "",
       technician_name: "",
-      foreman_name: ""
-    }
+      foreman_name: "",
+    },
   });
   const onForemanCreate = (foreman: ForemanCreateDto) => {
     foremanCreateMutation.mutate(foreman);
@@ -316,16 +315,15 @@ const ForemenPage = () => {
     taskCreateMutation.mutate(task);
   };
 
-  const onFilterApplied = (filter : FilterDto)=> {
-    setFilterData({...filter});
+  const onFilterApplied = (filter: FilterDto) => {
+    setFilterData({ ...filter });
     setIsFilterDialogOpen(false);
-  }
+  };
 
   const resetFilterForm = () => {
     filter_form.reset();
     setFilterData(filter_form.getValues());
-  }
-
+  };
 
   return (
     <div className="p-6">
@@ -345,23 +343,35 @@ const ForemenPage = () => {
             <TabsContent value="tasks">
               <div className="flex mb-4 justify-between">
                 <div>
-                  <Button variant="outline" onClick={() => setIsDialogOpen(true)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsDialogOpen(true)}
+                  >
                     Добавить задачу
                   </Button>
                 </div>
                 <div className="flex gap-2">
-                  <Button onClick={resetFilterForm} className="underline" variant="ghost">
+                  <Button
+                    onClick={resetFilterForm}
+                    className="underline"
+                    variant="ghost"
+                  >
                     Сбросить фильтры
                   </Button>
-                  <Button variant="outline" onClick={() => setIsFilterDialogOpen(true)}>
-                    <Funnel className="text-primary"/>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsFilterDialogOpen(true)}
+                  >
+                    <Funnel className="text-primary" />
                   </Button>
                 </div>
               </div>
 
-
               {/*Диалоговое окно для фильтров*/}
-              <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
+              <Dialog
+                open={isFilterDialogOpen}
+                onOpenChange={setIsFilterDialogOpen}
+              >
                 <DialogContent aria-describedby={undefined}>
                   <DialogTitle>Фильтры</DialogTitle>
                   <Form {...filter_form}>
@@ -369,37 +379,39 @@ const ForemenPage = () => {
                       <div className="space-y-2">
                         <div className="flex justify-between gap-3">
                           <FormField
-                          control={filter_form.control}
-                          name="date_start"
-                          render={({ field }) => (
-                            <FormItem className="w-full">
-                              <FormLabel>Дата начала от</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="text"
-                                  placeholder="19.02.2025 19:00"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}/>
-                            <FormField
-                                control={filter_form.control}
-                                name="date_end"
-                                render={({ field }) => (
-                                    <FormItem className="w-full">
-                                        <FormLabel>Дата начала до</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                type="text"
-                                                placeholder="20.02.2025 20:00"
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
+                            control={filter_form.control}
+                            name="date_start"
+                            render={({ field }) => (
+                              <FormItem className="w-full">
+                                <FormLabel>Дата начала от</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="text"
+                                    placeholder="19.02.2025 19:00"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={filter_form.control}
+                            name="date_end"
+                            render={({ field }) => (
+                              <FormItem className="w-full">
+                                <FormLabel>Дата начала до</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="text"
+                                    placeholder="20.02.2025 20:00"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         </div>
                         <FormField
                           control={filter_form.control}
@@ -416,7 +428,8 @@ const ForemenPage = () => {
                               </FormControl>
                               <FormMessage />
                             </FormItem>
-                          )}/>
+                          )}
+                        />
                         <FormField
                           control={filter_form.control}
                           name="technician_name"
@@ -432,7 +445,8 @@ const ForemenPage = () => {
                               </FormControl>
                               <FormMessage />
                             </FormItem>
-                          )}/>
+                          )}
+                        />
                         <FormField
                           control={filter_form.control}
                           name="foreman_name"
@@ -448,7 +462,8 @@ const ForemenPage = () => {
                               </FormControl>
                               <FormMessage />
                             </FormItem>
-                          )}/>
+                          )}
+                        />
                         <FormField
                           control={filter_form.control}
                           name="status"
@@ -464,7 +479,8 @@ const ForemenPage = () => {
                               </FormControl>
                               <FormMessage />
                             </FormItem>
-                          )}/>
+                          )}
+                        />
                       </div>
 
                       <Button type="submit" className="mt-4">

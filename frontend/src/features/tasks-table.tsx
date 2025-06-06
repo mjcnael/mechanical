@@ -1,5 +1,5 @@
 import { apiInstance } from "@/shared/api/api-instance";
-import {useMutation, useQuery, useQueryClient} from "react-query";
+import { useMutation, useQuery, useQueryClient } from "react-query";
 import {
   ColumnDef,
   flexRender,
@@ -39,7 +39,7 @@ import {
 } from "@/shared/ui/default/form";
 import { Input } from "@/shared/ui/default/input";
 import { useForm } from "react-hook-form";
-import { useState} from "react";
+import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -58,7 +58,7 @@ import { useParams } from "react-router-dom";
 async function fetchTasks(props: FilterDto) {
   const { data } = await apiInstance.get("/technician-tasks", {
     method: "GET",
-    params: props
+    params: props,
   });
   return data;
 }
@@ -125,17 +125,21 @@ const FormSchema = z
   );
 
 type TasksTableProps = {
-  editable?: boolean,
-  filter: FilterDto
+  editable?: boolean;
+  filter: FilterDto;
 };
 
 const TasksTable = (props: TasksTableProps) => {
   const { id } = useParams();
+
   const query_fn = props.editable
     ? () => fetchTasks(props.filter)
     : () => fetchTechnicianTasks(id!);
 
-  const { data = [], isLoading } = useQuery("technician-tasks", query_fn);
+  const { data = [], isLoading } = useQuery(
+    ["technician-tasks", props.filter],
+    query_fn,
+  );
 
   const { data: foremenData = [], isLoading: isForemanLoading } = useQuery(
     "foremen",
@@ -195,15 +199,17 @@ const TasksTable = (props: TasksTableProps) => {
     {
       accessorKey: "task_id",
       header: "Номер задачи",
-      size: 90,
+      size: 70,
     },
     {
       accessorKey: "start_time",
       header: "Начало",
+      size: 90,
     },
     {
       accessorKey: "end_time",
       header: "Окончание",
+      size: 90,
     },
     {
       accessorKey: "workshop",
@@ -305,7 +311,7 @@ const TasksTable = (props: TasksTableProps) => {
           status: row.getValue("status"),
         };
 
-        const isEditable = task.status === "Отменено";
+        const isEditable = task.status !== "Отменено";
 
         return (
           <DropdownMenu>
