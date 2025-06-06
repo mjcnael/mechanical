@@ -20,8 +20,8 @@ async def get_technician_tasks(filter: TechnicianTaskFilter):
     INNER JOIN foremen f USING(foreman_id)
     WHERE ts.workshop LIKE '%{filter.workshop}%' AND f.full_name LIKE '%{filter.foreman_name}%' AND
           t.full_name LIKE '%{filter.technician_name}%' AND ts.status LIKE '%{filter.status}%' AND
-          TO_DATE(ts.start_time,'DD-mm-YYYY HH24:MI') BETWEEN TO_DATE('{start_date}','DD-mm-YYYY HH24:MI')
-          AND TO_DATE('{end_date}','DD-mm-YYYY HH24:MI')
+          TO_TIMESTAMP(ts.start_time,'DD-mm-YYYY HH24:MI') BETWEEN TO_TIMESTAMP('{start_date}','DD-mm-YYYY HH24:MI')
+          AND TO_TIMESTAMP('{end_date}','DD-mm-YYYY HH24:MI')
     ORDER BY task_id DESC;
     """
     print(query)
