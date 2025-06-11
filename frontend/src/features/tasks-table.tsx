@@ -341,13 +341,34 @@ const TasksTable = (props: TasksTableProps) => {
                     setUpdateRow(task);
                     taskUpdateStatusMutation.mutate({
                       task_id: task.task_id,
+                      status: "В процессе",
+                    });
+                  }}
+                >
+                  В процессе
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setUpdateRow(task);
+                    taskUpdateStatusMutation.mutate({
+                      task_id: task.task_id,
                       status: "Выполнено",
                     });
                   }}
                 >
                   Выполнено
                 </DropdownMenuItem>
-
+                <DropdownMenuItem
+                  onClick={() => {
+                    setUpdateRow(task);
+                    taskUpdateStatusMutation.mutate({
+                      task_id: task.task_id,
+                      status: "Не выполнено",
+                    });
+                  }}
+                >
+                  Не выполнено
+                </DropdownMenuItem>
                 {props.editable ? (
                   <DropdownMenuItem
                     onClick={() => {
