@@ -42,7 +42,7 @@ class Postgresql:
                 foreman_id INTEGER NOT NULL REFERENCES foremen(foreman_id),
                 technician_id INTEGER NOT NULL REFERENCES technicians(technician_id),
                 task_description VARCHAR(500) NOT NULL,
-                status VARCHAR(20) NOT NULL CHECK (status IN ('Не выполнено', 'Выполнено', 'Отменено'))
+                status VARCHAR(20) NOT NULL CHECK (status IN ('Не выполнено', 'В процессе', 'Выполнено', 'Отменено'))
                 important BOOLEAN NOT NULL DEFAULT FALSE
             );
             """,
