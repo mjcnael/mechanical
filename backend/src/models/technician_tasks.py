@@ -1,18 +1,30 @@
+import logging
+
 from database import database
 from models import foremen
 from schemas.technician_task import (
     TechnicianTask,
     TechnicianTaskCreate,
     TechnicianTaskUpdate,
+    TechnicianTaskFilter
 )
 
+async def get_technician_tasks(filter: TechnicianTaskFilter):
+    start_date = filter.date_start if filter.date_start!="" else "01.01.2000 00:00"
+    end_date = filter.date_end if filter.date_end!="" else "01.01.2033 00:00"
 
-async def get_technician_tasks():
-    query = """
-    SELECT task_id, start_time, end_time, workshop, foreman_id, technician_id, task_description, status, important 
-    FROM technician_tasks
+    query = f"""
+    SELECT ts.task_id, ts.start_time, ts.end_time, ts.workshop, ts.foreman_id, ts.technician_id, ts.task_description, ts.status
+    FROM technician_tasks ts
+    INNER JOIN technicians t USING(technician_id)
+    INNER JOIN foremen f USING(foreman_id)
+    WHERE ts.workshop LIKE '%{filter.workshop}%' AND f.full_name LIKE '%{filter.foreman_name}%' AND
+          t.full_name LIKE '%{filter.technician_name}%' AND ts.status LIKE '%{filter.status}%' AND
+          TO_TIMESTAMP(ts.start_time,'DD-mm-YYYY HH24:MI') BETWEEN TO_TIMESTAMP('{start_date}','DD-mm-YYYY HH24:MI')
+          AND TO_TIMESTAMP('{end_date}','DD-mm-YYYY HH24:MI')
     ORDER BY task_id DESC;
     """
+    print(query)
     async with database.pool.acquire() as connection:
         rows = await connection.fetch(query)
         tasks = [

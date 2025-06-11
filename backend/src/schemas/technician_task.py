@@ -33,3 +33,12 @@ class TechnicianTaskUpdate(BaseModel):
     end_time: str
     task_description: str
     important: bool
+
+
+class TechnicianTaskFilter(BaseModel):
+    date_start: str
+    date_end: str
+    workshop: str
+    foreman_name: str
+    technician_name: str
+    status: str
