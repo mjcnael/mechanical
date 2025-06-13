@@ -45,6 +45,7 @@ import { z } from "zod";
 import { DateTime } from "luxon";
 import TasksTable from "@/features/tasks-table";
 import formatDateToInput from "@/utils/formatDateToInput.tsx";
+import { Checkbox } from "@/shared/ui/default/checkbox";
 export const dateTimeFormat = "dd.MM.yyyy HH:mm";
 
 export type ForemanCreateDto = {
@@ -68,6 +69,7 @@ export type TaskCreateDto = {
   foreman_id: number;
   technician_id: number;
   task_description: string;
+  important: boolean;
 };
 
 export type FilterDto = {
@@ -148,6 +150,7 @@ const TaskFormSchema = z
         "Неверный формат даты и времени (ДД.ММ.ГГГГ ЧЧ:ММ)",
       ),
     workshop: z.coerce.number().int(),
+    important: z.coerce.boolean(),
     foreman_id: z.coerce.number().int(),
     technician_id: z.coerce.number().int(),
     task_description: z.coerce
@@ -289,6 +292,7 @@ const ForemenPage = () => {
     defaultValues: {
       start_time: formatDateToInput(new Date()),
       end_time: formatDateToInput(new Date()),
+      important: false,
     },
   });
 
@@ -312,6 +316,7 @@ const ForemenPage = () => {
   };
 
   const onTaskCreate = (task: TaskCreateDto) => {
+
     taskCreateMutation.mutate(task);
   };
 
@@ -857,6 +862,23 @@ const ForemenPage = () => {
                                 />
                               </FormControl>
                               <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={task_form.control}
+                          name="important"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center gap-2">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value}
+                                  onCheckedChange={(checked) =>
+                                    field.onChange(!!checked)
+                                  }
+                                />
+                              </FormControl>
+                              <FormLabel>Важно</FormLabel>
                             </FormItem>
                           )}
                         />

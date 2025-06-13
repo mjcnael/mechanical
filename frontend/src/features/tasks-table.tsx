@@ -75,15 +75,16 @@ const updateTaskStatus = async (taskId: number, status: string) => {
   });
 };
 
+async function updateTask(task_id: number, task: TaskUpdateDto) {
+  return await apiInstance.put(`/technician-tasks/${task_id}`, task);
+}
+
 export type TaskUpdateDto = {
   start_time: string;
   end_time: string;
   task_description: string;
+  important: boolean;
 };
-
-async function updateTask(task_id: number, task: TaskUpdateDto) {
-  return await apiInstance.put(`/technician-tasks/${task_id}`, task);
-}
 
 export type TaskDto = {
   task_id: number;
@@ -94,6 +95,7 @@ export type TaskDto = {
   technician_id: number;
   task_description: string;
   status: string;
+  important: boolean;
 };
 
 const FormSchema = z
@@ -111,6 +113,7 @@ const FormSchema = z
         "Неверный формат даты и времени (ДД.ММ.ГГГГ ЧЧ:ММ)",
       ),
     task_description: z.coerce.string().max(500).min(5),
+    important: z.coerce.boolean(),
   })
   .refine(
     (data) => {
@@ -309,6 +312,7 @@ const TasksTable = (props: TasksTableProps) => {
           technician_id: props.editable ? row.getValue("technician_id") : 0,
           task_description: row.getValue("task_description"),
           status: row.getValue("status"),
+          important: false,
         };
 
         const isEditable = task.status !== "Отменено";
@@ -490,7 +494,18 @@ const TasksTable = (props: TasksTableProps) => {
           <TableBody>
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  className={
+                    row.original.status === "Выполнено"
+                      ? "bg-green-50 hover:bg-green-100"
+                      : row.original.status === "Отменено"
+                        ? "bg-grey-50 hover:bg-grey-100"
+                        : row.original.important
+                          ? "bg-red-50 hover:bg-red-100"
+                          : "bg-yellow-50 hover:bg-yellow-100"
+                  }
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}

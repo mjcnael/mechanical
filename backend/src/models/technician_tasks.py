@@ -1,20 +1,19 @@
-import logging
-
 from database import database
 from models import foremen
 from schemas.technician_task import (
     TechnicianTask,
     TechnicianTaskCreate,
     TechnicianTaskUpdate,
-    TechnicianTaskFilter
+    TechnicianTaskFilter,
 )
 
+
 async def get_technician_tasks(filter: TechnicianTaskFilter):
-    start_date = filter.date_start if filter.date_start!="" else "01.01.2000 00:00"
-    end_date = filter.date_end if filter.date_end!="" else "01.01.2033 00:00"
+    start_date = filter.date_start if filter.date_start != "" else "01.01.2000 00:00"
+    end_date = filter.date_end if filter.date_end != "" else "01.01.2033 00:00"
 
     query = f"""
-    SELECT ts.task_id, ts.start_time, ts.end_time, ts.workshop, ts.foreman_id, ts.technician_id, ts.task_description, ts.status
+    SELECT ts.task_id, ts.start_time, ts.end_time, ts.workshop, ts.foreman_id, ts.technician_id, ts.task_description, ts.status, ts.important
     FROM technician_tasks ts
     INNER JOIN technicians t USING(technician_id)
     INNER JOIN foremen f USING(foreman_id)
@@ -87,7 +86,6 @@ async def get_technician_task_by_id(task_id: int):
 
 async def insert_technician_task(dto: TechnicianTaskCreate):
     foreman = await foremen.get_foreman_by_id(dto.workshop)
-
     query = """
     INSERT INTO technician_tasks (start_time, end_time, workshop, foreman_id, technician_id, task_description, status, important)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -103,6 +101,7 @@ async def insert_technician_task(dto: TechnicianTaskCreate):
             dto.technician_id,
             dto.task_description,
             "Не выполнено",
+            dto.important,
         )
         return TechnicianTask(**result)
 
