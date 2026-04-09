@@ -21,7 +21,6 @@ class TechnicianTask(BaseModel):
 class TechnicianTaskCreate(BaseModel):
     start_time: str
     end_time: str
-    workshop: int
     foreman_id: int
     technician_id: int
     task_description: str

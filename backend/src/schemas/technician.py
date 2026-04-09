@@ -14,6 +14,7 @@ class TechnicianCreate(BaseModel):
     full_name: str
     gender: str
     phone_number: str
+    password: str
 
 
 class TechnicianUpdate(BaseModel):

@@ -14,6 +14,7 @@ class ForemanCreate(BaseModel):
     gender: str
     workshop: str
     phone_number: str
+    password: str
 
 
 class ForemanUpdate(BaseModel):

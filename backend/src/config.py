@@ -16,6 +16,12 @@ class PostgreSQLConfig(BaseModel):
     PASSWORD: str = "postgres"
 
 
+class JWTConfig(BaseModel):
+    SECRET_KEY: str = "change-me-in-production"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+
+
 class Config(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=[".env.template", ".env"],
@@ -24,6 +30,7 @@ class Config(BaseSettings):
     )
     startup: StartupConfig = StartupConfig()
     postgresql: PostgreSQLConfig = PostgreSQLConfig()
+    jwt: JWTConfig = JWTConfig()
 
 
 config = Config()

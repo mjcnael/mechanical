@@ -1,10 +1,24 @@
 from config import config
 import uvicorn
 from fastapi import FastAPI
+from fastapi import HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from routes import foremen_router, technicians_router, technician_tasks_router
+from errors import (
+    AppError,
+    app_error_handler,
+    http_exception_handler,
+    validation_exception_handler,
+)
+from routes import (
+    auth_router,
+    foremen_router,
+    notifications_router,
+    technician_tasks_router,
+    technicians_router,
+)
 from database import database
 
 
@@ -15,17 +29,16 @@ async def lifespan(app: FastAPI):
     await database.disconnect()
 
 
-app = FastAPI(
-    root_path="/api",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
-    lifespan=lifespan,
-)
+app = FastAPI(lifespan=lifespan)
+app.add_exception_handler(AppError, app_error_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
+app.include_router(auth_router)
 app.include_router(foremen_router)
 app.include_router(technicians_router)
 app.include_router(technician_tasks_router)
+app.include_router(notifications_router)
 
 origins = ["http://localhost:3000"]
 

@@ -1,4 +1,4 @@
-import { apiInstance } from "@/shared/api/api-instance";
+import { apiInstance, getApiErrorMessage } from "@/shared/api/api-instance";
 import { useMutation, useQuery, useQueryClient } from "react-query";
 import {
   ColumnDef,
@@ -98,21 +98,131 @@ export type TaskDto = {
   important: boolean;
 };
 
+type ForemanCellProps = {
+  foremanId: number;
+  foremen: ForemanDto[];
+};
+
+const ForemanCell = ({ foremanId, foremen }: ForemanCellProps) => {
+  const [isForemanOpen, setIsForemanOpen] = useState(false);
+  const foreman = foremen.find((value) => value.foreman_id === foremanId);
+
+  if (!foreman) return <>{foremanId}</>;
+
+  return (
+    <div>
+      <span
+        onClick={() => setIsForemanOpen(true)}
+        className="cursor-pointer text-emerald-400 hover:underline"
+      >
+        {foreman.full_name}
+      </span>
+
+      <Dialog open={isForemanOpen} onOpenChange={setIsForemanOpen}>
+        <DialogContent aria-describedby={undefined}>
+          <DialogTitle>Карточка начальника</DialogTitle>
+          <div className="space-y-2">
+            <p>Табельный номер: {foreman.foreman_id}</p>
+            <p>ФИО: {foreman.full_name}</p>
+            <p>Пол: {foreman.gender}</p>
+            <p>Цеx: {foreman.workshop}</p>
+            <p>Телефон: {foreman.phone_number}</p>
+          </div>
+          <Button onClick={() => setIsForemanOpen(false)} className="mt-4">
+            Закрыть
+          </Button>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+type TechnicianCellProps = {
+  technicianId: number;
+  technicians: TechnicianDto[];
+};
+
+const TechnicianCell = ({ technicianId, technicians }: TechnicianCellProps) => {
+  const [isTechnicianOpen, setIsTechnicianOpen] = useState(false);
+  const technician = technicians.find(
+    (value) => value.technician_id === technicianId,
+  );
+
+  if (!technician) return <></>;
+
+  return (
+    <div>
+      <span
+        onClick={() => setIsTechnicianOpen(true)}
+        className="cursor-pointer text-amber-400 hover:underline"
+      >
+        {technician.full_name}
+      </span>
+
+      <Dialog open={isTechnicianOpen} onOpenChange={setIsTechnicianOpen}>
+        <DialogContent aria-describedby={undefined}>
+          <DialogTitle>Карточка технического работника</DialogTitle>
+          <div className="space-y-2">
+            <p>Табельный номер: {technician.technician_id}</p>
+            <p>ФИО: {technician.full_name}</p>
+            <p>Пол: {technician.gender}</p>
+            <p>Специализация: {technician.specialization}</p>
+            <p>Телефон: {technician.phone_number}</p>
+          </div>
+          <Button onClick={() => setIsTechnicianOpen(false)} className="mt-4">
+            Закрыть
+          </Button>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+const TaskDescriptionCell = ({ description }: { description: string }) => {
+  const [isDescOpen, setIsDescOpen] = useState(false);
+  const shortDescription =
+    description.length > 20 ? `${description.substring(0, 20)}...` : description;
+
+  return (
+    <div>
+      <span
+        onClick={() => setIsDescOpen(true)}
+        className="cursor-pointer text-blue-400 hover:underline"
+      >
+        {shortDescription}
+      </span>
+
+      <Dialog open={isDescOpen} onOpenChange={setIsDescOpen}>
+        <DialogContent aria-describedby={undefined}>
+          <DialogTitle>Описание задачи</DialogTitle>
+          <p>{description}</p>
+          <Button onClick={() => setIsDescOpen(false)} className="mt-4">
+            Закрыть
+          </Button>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
 const FormSchema = z
   .object({
     start_time: z
       .string()
       .refine(
         (value) => DateTime.fromFormat(value, dateTimeFormat).isValid,
-        "Неверный формат даты и времени (ДД.ММ.ГГГГ ЧЧ:ММ)",
+        "Некорректно указан срок выполнения",
       ),
     end_time: z
       .string()
       .refine(
         (value) => DateTime.fromFormat(value, dateTimeFormat).isValid,
-        "Неверный формат даты и времени (ДД.ММ.ГГГГ ЧЧ:ММ)",
+        "Некорректно указан срок выполнения",
       ),
-    task_description: z.coerce.string().max(500).min(5),
+    task_description: z.coerce
+      .string()
+      .min(1, "Необходимо указать описание задачи")
+      .max(500, "Введены некорректные данные задачи"),
     important: z.coerce.boolean(),
   })
   .refine(
@@ -122,34 +232,45 @@ const FormSchema = z
       return end > start;
     },
     {
-      message: "Время окончания должно быть позже времени начала",
+      message: "Некорректно указан срок выполнения",
       path: ["end_time"],
     },
   );
 
 type TasksTableProps = {
   editable?: boolean;
-  filter: FilterDto;
+  filter?: FilterDto;
+};
+
+const emptyFilter: FilterDto = {
+  date_start: "",
+  date_end: "",
+  workshop: "",
+  foreman_name: "",
+  technician_name: "",
+  status: "",
 };
 
 const TasksTable = (props: TasksTableProps) => {
   const { id } = useParams();
+  const filter = props.filter ?? emptyFilter;
 
   const query_fn = props.editable
-    ? () => fetchTasks(props.filter)
+    ? () => fetchTasks(filter)
     : () => fetchTechnicianTasks(id!);
 
   const { data = [], isLoading } = useQuery(
-    ["technician-tasks", props.filter],
+    ["technician-tasks", props.editable ? filter : id],
     query_fn,
   );
 
   const { data: foremenData = [], isLoading: isForemanLoading } = useQuery(
     "foremen",
     fetchForemen,
+    { enabled: !!props.editable },
   );
   const { data: techniciansData = [], isLoading: isTechnicianLoading } =
-    useQuery("technicians", fetchTechnicians);
+    useQuery("technicians", fetchTechnicians, { enabled: !!props.editable });
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [updateRow, setUpdateRow] = useState<TaskDto>();
@@ -168,6 +289,9 @@ const TasksTable = (props: TasksTableProps) => {
         toast.success(`Задача ${updateRow?.task_id} успешно обновлена`);
         queryClient.invalidateQueries(["technician-tasks"]);
       },
+      onError: (e) => {
+        toast.error(getApiErrorMessage(e));
+      },
     },
   );
 
@@ -176,7 +300,6 @@ const TasksTable = (props: TasksTableProps) => {
       updateTaskStatus(task_id, status),
     {
       onSuccess: (_data, variables) => {
-        console.log(updateRow);
         if (variables.status === "Выполнено") {
           toast.success(`Задача ${variables.task_id} успешно выполнена`);
         }
@@ -184,6 +307,10 @@ const TasksTable = (props: TasksTableProps) => {
           toast.success(`Задача ${variables.task_id} успешно отменена`);
         }
         queryClient.invalidateQueries(["technician-tasks"]);
+        queryClient.invalidateQueries(["notifications"]);
+      },
+      onError: (e) => {
+        toast.error(getApiErrorMessage(e));
       },
     },
   );
@@ -221,79 +348,16 @@ const TasksTable = (props: TasksTableProps) => {
     {
       accessorKey: "foreman_id",
       header: "Начальник",
-      cell: ({ row }) => {
-        const [isForemanOpen, setIsForemanOpen] = useState(false);
-
-        const foreman: ForemanDto = foremenData.find(
-          (value: ForemanDto) =>
-            value.foreman_id === row.getValue("foreman_id"),
-        );
-
-        if (!foreman) return <></>;
-
-        return (
-          <div>
-            <span
-              onClick={() => setIsForemanOpen(true)}
-              className="cursor-pointer text-emerald-400 hover:underline"
-            >
-              {foreman.full_name}
-            </span>
-
-            <Dialog open={isForemanOpen} onOpenChange={setIsForemanOpen}>
-              <DialogContent aria-describedby={undefined}>
-                <DialogTitle>Карточка начальника</DialogTitle>
-                <div className="space-y-2">
-                  <p>Табельный номер: {foreman.foreman_id}</p>
-                  <p>ФИО: {foreman.full_name}</p>
-                  <p>Пол: {foreman.gender}</p>
-                  <p>Цеx: {foreman.workshop}</p>
-                  <p>Телефон: {foreman.phone_number}</p>
-                </div>
-                <Button
-                  onClick={() => setIsForemanOpen(false)}
-                  className="mt-4"
-                >
-                  Закрыть
-                </Button>
-              </DialogContent>
-            </Dialog>
-          </div>
-        );
-      },
+      cell: ({ row }) => (
+        <ForemanCell foremanId={row.getValue("foreman_id")} foremen={foremenData} />
+      ),
     },
     {
       accessorKey: "task_description",
       header: "Описание",
-      cell: ({ row }) => {
-        const [isDescOpen, setIsDescOpen] = useState(false);
-        const fullDescription: string = row.getValue("task_description");
-        const shortDescription =
-          fullDescription.length > 20
-            ? `${fullDescription.substring(0, 20)}...`
-            : fullDescription;
-
-        return (
-          <div>
-            <span
-              onClick={() => setIsDescOpen(true)}
-              className="cursor-pointer text-blue-400 hover:underline"
-            >
-              {shortDescription}
-            </span>
-
-            <Dialog open={isDescOpen} onOpenChange={setIsDescOpen}>
-              <DialogContent aria-describedby={undefined}>
-                <DialogTitle>Описание задачи</DialogTitle>
-                <p>{fullDescription}</p>
-                <Button onClick={() => setIsDescOpen(false)} className="mt-4">
-                  Закрыть
-                </Button>
-              </DialogContent>
-            </Dialog>
-          </div>
-        );
-      },
+      cell: ({ row }) => (
+        <TaskDescriptionCell description={row.getValue("task_description")} />
+      ),
     },
     {
       accessorKey: "status",
@@ -349,56 +413,43 @@ const TasksTable = (props: TasksTableProps) => {
               ) : (
                 <></>
               )}
-              <DropdownMenuGroup>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setUpdateRow(task);
-                    taskUpdateStatusMutation.mutate({
-                      task_id: task.task_id,
-                      status: "В процессе",
-                    });
-                  }}
-                >
-                  В процессе
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setUpdateRow(task);
-                    taskUpdateStatusMutation.mutate({
-                      task_id: task.task_id,
-                      status: "Выполнено",
-                    });
-                  }}
-                >
-                  Выполнено
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setUpdateRow(task);
-                    taskUpdateStatusMutation.mutate({
-                      task_id: task.task_id,
-                      status: "Не выполнено",
-                    });
-                  }}
-                >
-                  Не выполнено
-                </DropdownMenuItem>
-                {props.editable ? (
+              {!props.editable && (
+                <DropdownMenuGroup>
                   <DropdownMenuItem
                     onClick={() => {
                       setUpdateRow(task);
                       taskUpdateStatusMutation.mutate({
                         task_id: task.task_id,
-                        status: "Отменено",
+                        status: "В процессе",
                       });
                     }}
                   >
-                    Отменено
+                    В процессе
                   </DropdownMenuItem>
-                ) : (
-                  <></>
-                )}
-              </DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setUpdateRow(task);
+                      taskUpdateStatusMutation.mutate({
+                        task_id: task.task_id,
+                        status: "Выполнено",
+                      });
+                    }}
+                  >
+                    Выполнено
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setUpdateRow(task);
+                      taskUpdateStatusMutation.mutate({
+                        task_id: task.task_id,
+                        status: "Не выполнено",
+                      });
+                    }}
+                  >
+                    Не выполнено
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         );
@@ -424,46 +475,12 @@ const TasksTable = (props: TasksTableProps) => {
       accessorKey: "technician_id",
       header: "Работник",
       size: 150,
-      cell: ({ row }) => {
-        const [isTechnicianOpen, setIsTechnicianOpen] = useState(false);
-
-        const technician: TechnicianDto = techniciansData.find(
-          (value: TechnicianDto) =>
-            value.technician_id === row.getValue("technician_id"),
-        );
-
-        if (!technician) return <></>;
-
-        return (
-          <div>
-            <span
-              onClick={() => setIsTechnicianOpen(true)}
-              className="cursor-pointer text-amber-400 hover:underline"
-            >
-              {technician.full_name}
-            </span>
-
-            <Dialog open={isTechnicianOpen} onOpenChange={setIsTechnicianOpen}>
-              <DialogContent aria-describedby={undefined}>
-                <DialogTitle>Карточка технического работника</DialogTitle>
-                <div className="space-y-2">
-                  <p>Табельный номер: {technician.technician_id}</p>
-                  <p>ФИО: {technician.full_name}</p>
-                  <p>Пол: {technician.gender}</p>
-                  <p>Специализация: {technician.specialization}</p>
-                  <p>Телефон: {technician.phone_number}</p>
-                </div>
-                <Button
-                  onClick={() => setIsTechnicianOpen(false)}
-                  className="mt-4"
-                >
-                  Закрыть
-                </Button>
-              </DialogContent>
-            </Dialog>
-          </div>
-        );
-      },
+      cell: ({ row }) => (
+        <TechnicianCell
+          technicianId={row.getValue("technician_id")}
+          technicians={techniciansData}
+        />
+      ),
     });
   }
 

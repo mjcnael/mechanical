@@ -5,7 +5,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/ui/default/card";
-import { Dialog, DialogContent, DialogTitle } from "@/shared/ui/default/dialog";
 import { Input } from "@/shared/ui/default/input";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -20,83 +19,113 @@ import {
   FormLabel,
   FormMessage,
 } from "@/shared/ui/default/form";
-import { apiInstance } from "@/shared/api/api-instance";
+import { apiInstance, getApiErrorMessage } from "@/shared/api/api-instance";
+import { setCurrentUser, setToken } from "@/shared/auth";
+import { normalizePhoneNumber } from "@/shared/phone";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/shared/ui/default/tabs";
 import { toast } from "sonner";
 
 const FormSchema = z.object({
-  id: z.coerce
-    .number({ message: "Идентификатор должен быть натуральным числом" })
-    .min(1, "Идентификатор должен быть натуральным числом")
-    .int("Идентификатор должен быть натуральным числом"),
+  phone_number: z.preprocess(
+    (value) => (typeof value === "string" ? normalizePhoneNumber(value) : value),
+    z.string().regex(/^\+7\d{10}$/, "Неверный формат номера телефона"),
+  ),
+  password: z.string().min(1, "Заполните все обязательные поля"),
 });
 
-export const fetchTechnician = async (technicianId: number) => {
-  try {
-    const { data } = await apiInstance.get(`/technicians/${technicianId}`);
-    return data;
-  } catch (error) {
-    throw new Error("Technician not found");
-  }
+type LoginForm = z.infer<typeof FormSchema>;
+type LoginRole = "foreman" | "technician";
+
+type LoginResponse = {
+  access_token: string;
+  role: LoginRole;
+  user_id: number;
+  full_name: string;
+};
+
+const login = async (role: LoginRole, form: LoginForm) => {
+  const { data } = await apiInstance.post<LoginResponse>("/auth/login", {
+    role,
+    ...form,
+  });
+  return data;
 };
 
 const UserSelectionPage = () => {
   const navigate = useNavigate();
+  const [role, setRole] = useState<LoginRole>("foreman");
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  const form = useForm<z.infer<typeof FormSchema>>({
+  const form = useForm<LoginForm>({
     resolver: zodResolver(FormSchema),
+    defaultValues: {
+      phone_number: "",
+      password: "",
+    },
   });
 
-  const onSubmit = async (data: z.infer<typeof FormSchema>) => {
+  const onSubmit = async (data: LoginForm) => {
     try {
-      const technician = await fetchTechnician(data.id);
-      navigate(`/technicians/${technician.technician_id}`);
+      const normalizedData = {
+        ...data,
+        phone_number: normalizePhoneNumber(data.phone_number),
+      };
+      const user = await login(role, normalizedData);
+      setToken(user.access_token);
+      setCurrentUser({
+        role: user.role,
+        user_id: user.user_id,
+        full_name: user.full_name,
+        phone_number: normalizedData.phone_number,
+      });
+
+      navigate(user.role === "technician" ? `/technicians/${user.user_id}` : "/foremen");
     } catch (error) {
-      toast.error(`Технический работник ${data.id} не найден`);
+      toast.error(getApiErrorMessage(error));
     }
   };
+
   return (
     <div className="min-h-screen flex items-center justify-center">
       <Card className="w-96 shadow-md">
         <CardHeader>
-          <CardTitle className="text-center">Выбор пользователя</CardTitle>
+          <CardTitle className="text-center">Вход</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <Button
+        <CardContent>
+          <Tabs
+            value={role}
+            onValueChange={(value) => setRole(value as LoginRole)}
             className="w-full"
-            variant="outline"
-            onClick={() => setIsDialogOpen(true)}
           >
-            Технический работник
-          </Button>
-          <Button
-            className="w-full"
-            variant="outline"
-            onClick={() => navigate("/foremen")}
-          >
-            Начальник цеха
-          </Button>
-        </CardContent>
-      </Card>
+            <TabsList className="w-full">
+              <TabsTrigger value="foreman" className="w-full">
+                Начальник
+              </TabsTrigger>
+              <TabsTrigger value="technician" className="w-full">
+                Техник
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="foreman" />
+            <TabsContent value="technician" />
+          </Tabs>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent aria-describedby={undefined}>
-          <DialogTitle>Введите табельный номер работника</DialogTitle>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="id"
+                name="phone_number"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Табельный номер</FormLabel>
+                    <FormLabel>Номер телефона</FormLabel>
                     <FormControl>
                       <Input
                         required
                         {...field}
-                        value={undefined}
-                        autoComplete="off"
+                        autoComplete="tel"
                         autoCorrect="off"
                         spellCheck="false"
                       />
@@ -105,13 +134,26 @@ const UserSelectionPage = () => {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="mt-4">
-                Перейти
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Пароль</FormLabel>
+                    <FormControl>
+                      <Input required type="password" autoComplete="current-password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full">
+                Войти
               </Button>
             </form>
           </Form>
-        </DialogContent>
-      </Dialog>
+        </CardContent>
+      </Card>
     </div>
   );
 };

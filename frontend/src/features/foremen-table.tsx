@@ -1,4 +1,4 @@
-import { apiInstance } from "@/shared/api/api-instance";
+import { apiInstance, getApiErrorMessage } from "@/shared/api/api-instance";
 import { useMutation, useQuery, useQueryClient } from "react-query";
 import {
   ColumnDef,
@@ -70,14 +70,14 @@ const FormSchema = z.object({
     .string()
     .regex(
       /^\S+ \S+ \S+$/,
-      "ФИО должно содержать фамилию, имя и отчество разделенные пробелом",
+      "Заполните все обязательные поля",
     ),
   workshop: z
     .string()
-    .max(50, "Название цеха должно содержать не более 50 символов"),
+    .max(50, "Выбран некорректный цех"),
   phone_number: z
     .string()
-    .regex(/^\+?\d{11}$/, "Введите корректный номер телефона"),
+    .regex(/^\+?\d{11}$/, "Неверный формат номера телефона"),
 });
 
 type ForemenTableProps = {
@@ -117,7 +117,7 @@ const ForemenTable = (props: ForemenTableProps) => {
         setIsDialogOpen(false);
       },
       onError: (e) => {
-        toast.error(`Error: ${e.response.data?.detail}`);
+        toast.error(getApiErrorMessage(e));
       },
     },
   );

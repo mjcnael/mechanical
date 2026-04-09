@@ -1,6 +1,6 @@
 import ForemenTable, { ForemanDto } from "@/features/foremen-table";
 import TechniciansTable, { TechnicianDto } from "@/features/technicians-table";
-import { apiInstance } from "@/shared/api/api-instance";
+import { apiInstance, getApiErrorMessage } from "@/shared/api/api-instance";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/default/button";
 import { Card, CardContent, CardHeader } from "@/shared/ui/default/card";
@@ -40,12 +40,17 @@ import { Check, ChevronsUpDown, Funnel } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "react-query";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
 import { DateTime } from "luxon";
 import TasksTable from "@/features/tasks-table";
 import formatDateToInput from "@/utils/formatDateToInput.tsx";
 import { Checkbox } from "@/shared/ui/default/checkbox";
+import NotificationsList, {
+  fetchUnreadCount,
+} from "@/features/notifications-list";
+import { getCurrentUser, logout } from "@/shared/auth";
 export const dateTimeFormat = "dd.MM.yyyy HH:mm";
 
 export type ForemanCreateDto = {
@@ -53,6 +58,7 @@ export type ForemanCreateDto = {
   gender: string;
   workshop: string;
   phone_number: string;
+  password: string;
 };
 
 export type TechnicianCreateDto = {
@@ -60,12 +66,12 @@ export type TechnicianCreateDto = {
   full_name: string;
   gender: string;
   phone_number: string;
+  password: string;
 };
 
 export type TaskCreateDto = {
   start_time: string;
   end_time: string;
-  workshop: number;
   foreman_id: number;
   technician_id: number;
   task_description: string;
@@ -108,15 +114,16 @@ const ForemanFormSchema = z.object({
     .string()
     .regex(
       /^\S+ \S+ \S+$/,
-      "ФИО должно содержать фамилию, имя и отчество разделенные пробелом",
+      "Заполните все обязательные поля",
     ),
   gender: z.enum(["М", "Ж"], { message: "Выберите корректный пол" }),
   workshop: z
     .string()
-    .max(50, "Название цеха должно содержать не более 50 символов"),
+    .max(50, "Выбран некорректный цех"),
   phone_number: z
     .string()
-    .regex(/^\+?\d{11}$/, "Введите корректный номер телефона"),
+    .regex(/^\+?\d{11}$/, "Неверный формат номера телефона"),
+  password: z.string().min(1, "Заполните все обязательные поля"),
 });
 
 const TechnicianFormSchema = z.object({
@@ -124,15 +131,17 @@ const TechnicianFormSchema = z.object({
     .string()
     .regex(
       /^\S+ \S+ \S+$/,
-      "ФИО должно содержать фамилию, имя и отчество разделенные пробелом",
+      "Заполните все обязательные поля",
     ),
   gender: z.enum(["М", "Ж"], { message: "Выберите корректный пол" }),
   specialization: z
     .string()
-    .max(50, "Специализация должна содержать не более 50 символов"),
+    .min(1, "Для технического работника необходимо указать специализацию")
+    .max(50, "Некорректно указаны цех или специализация"),
   phone_number: z
     .string()
-    .regex(/^\+?\d{11}$/, "Введите корректный номер телефона"),
+    .regex(/^\+?\d{11}$/, "Неверный формат номера телефона"),
+  password: z.string().min(1, "Заполните все обязательные поля"),
 });
 
 const TaskFormSchema = z
@@ -141,22 +150,23 @@ const TaskFormSchema = z
       .string()
       .refine(
         (value) => DateTime.fromFormat(value, dateTimeFormat).isValid,
-        "Неверный формат даты и времени (ДД.ММ.ГГГГ ЧЧ:ММ)",
+        "Некорректно указан срок выполнения",
       ),
     end_time: z
       .string()
       .refine(
         (value) => DateTime.fromFormat(value, dateTimeFormat).isValid,
-        "Неверный формат даты и времени (ДД.ММ.ГГГГ ЧЧ:ММ)",
+        "Некорректно указан срок выполнения",
       ),
-    workshop: z.coerce.number().int(),
-    important: z.coerce.boolean(),
-    foreman_id: z.coerce.number().int(),
-    technician_id: z.coerce.number().int(),
+    important: z.coerce.boolean({
+      invalid_type_error: "Выбран недопустимый приоритет задачи",
+    }),
+    foreman_id: z.coerce.number().int("Некорректный формат идентификатора"),
+    technician_id: z.coerce.number().int("Выберите исполнителя"),
     task_description: z.coerce
       .string()
-      .min(5, "Описание задачи должно содержать не менее 5 символов")
-      .max(500, "Описание задачи должно содержать не более 500 символов"),
+      .min(1, "Необходимо указать описание задачи")
+      .max(500, "Введены некорректные данные задачи"),
   })
   .refine(
     (data) => {
@@ -165,7 +175,7 @@ const TaskFormSchema = z
       return end > start;
     },
     {
-      message: "Время окончания должно быть позже времени начала",
+      message: "Некорректно указан срок выполнения",
       path: ["end_time"],
     },
   );
@@ -176,40 +186,47 @@ const FilterTaskSchema = z.object({
     .refine(
       (value) =>
         DateTime.fromFormat(value, dateTimeFormat).isValid || value == "",
-      "Неверный формат даты и времени (ДД.ММ.ГГГГ ЧЧ:ММ)",
+      "Указаны некорректные параметры фильтрации",
     ),
   date_end: z.coerce
     .string()
     .refine(
       (value) =>
         DateTime.fromFormat(value, dateTimeFormat).isValid || value == "",
-      "Неверный формат даты и времени (ДД.ММ.ГГГГ ЧЧ:ММ)",
+      "Указаны некорректные параметры фильтрации",
     ),
   workshop: z.coerce
     .string()
-    .max(100, "Название цеха не должно быть длинее 100 символов"),
+    .max(100, "Указаны некорректные параметры фильтрации"),
   technician_name: z.coerce
     .string()
-    .max(50, "ФИО рабочего не должно быть длинее 50 символов"),
+    .max(50, "Указаны некорректные параметры фильтрации"),
   foreman_name: z.coerce
     .string()
-    .max(50, "ФИО начальника не должно быть длинее 50 символов"),
+    .max(50, "Указаны некорректные параметры фильтрации"),
   status: z.coerce.string(),
 });
 
 const ForemenPage = () => {
-  const { data: foremenData = [], isLoading: isForemenLoading } = useQuery(
+  const navigate = useNavigate();
+  const currentUser = getCurrentUser();
+  const { data: foremenData = [] } = useQuery(
     "foremen",
     fetchForemen,
   );
-  const { data: techniciansData = [], isLoading: isTechniciansLoading } =
-    useQuery("technicians", fetchTechnicians);
+  const { data: techniciansData = [] } = useQuery("technicians", fetchTechnicians);
+  const { data: unreadNotifications } = useQuery(
+    "notifications-unread-count",
+    fetchUnreadCount,
+    {
+      refetchInterval: 10000,
+    },
+  );
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const [openForemen, setOpenForemen] = useState(false);
   const [openTechnicians, setOpenTechnicians] = useState(false);
-  const [openWorkshop, setOpenWorkshop] = useState(false);
   const [filterData, setFilterData] = useState({
     date_start: "",
     date_end: "",
@@ -232,7 +249,7 @@ const ForemenPage = () => {
         setIsDialogOpen(false);
       },
       onError: (e) => {
-        toast.error(`Error: ${e.response.data?.detail}`);
+        toast.error(getApiErrorMessage(e));
       },
     },
   );
@@ -248,7 +265,7 @@ const ForemenPage = () => {
         setIsDialogOpen(false);
       },
       onError: (e) => {
-        toast.error(`Error: ${e.response.data?.detail}`);
+        toast.error(getApiErrorMessage(e));
       },
     },
   );
@@ -262,7 +279,7 @@ const ForemenPage = () => {
         setIsDialogOpen(false);
       },
       onError: (e) => {
-        toast.error(`Error: ${e.response.data?.detail}`);
+        toast.error(getApiErrorMessage(e));
       },
     },
   );
@@ -274,6 +291,7 @@ const ForemenPage = () => {
       gender: "",
       workshop: "",
       phone_number: "",
+      password: "",
     },
   });
 
@@ -284,6 +302,7 @@ const ForemenPage = () => {
       full_name: "",
       gender: "",
       phone_number: "",
+      password: "",
     },
   });
 
@@ -292,6 +311,7 @@ const ForemenPage = () => {
     defaultValues: {
       start_time: formatDateToInput(new Date()),
       end_time: formatDateToInput(new Date()),
+      foreman_id: currentUser?.user_id ?? 0,
       important: false,
     },
   });
@@ -316,7 +336,6 @@ const ForemenPage = () => {
   };
 
   const onTaskCreate = (task: TaskCreateDto) => {
-
     taskCreateMutation.mutate(task);
   };
 
@@ -330,19 +349,35 @@ const ForemenPage = () => {
     setFilterData(filter_form.getValues());
   };
 
+  const onLogout = () => {
+    logout();
+    navigate("/", { replace: true });
+  };
+
   return (
     <div className="p-6">
       <Card className="w-full">
         <Tabs defaultValue="foremen" className="w-full">
           <CardHeader className="flex-row items-center justify-between pb-2">
             <h1 className="text-xl font-bold">Начальник Цеха</h1>
-            <TabsList>
-              <TabsTrigger value="foremen">Начальники цехов</TabsTrigger>
-              <TabsTrigger value="technicians">
-                Технические работники
-              </TabsTrigger>
-              <TabsTrigger value="tasks">Задачи</TabsTrigger>
-            </TabsList>
+            <div className="flex items-center gap-2">
+              <TabsList>
+                <TabsTrigger value="foremen">Начальники цехов</TabsTrigger>
+                <TabsTrigger value="technicians">
+                  Технические работники
+                </TabsTrigger>
+                <TabsTrigger value="tasks">Задачи</TabsTrigger>
+                <TabsTrigger value="notifications" className="relative">
+                  Уведомления
+                  {!!unreadNotifications?.unread_count && (
+                    <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
+                  )}
+                </TabsTrigger>
+              </TabsList>
+              <Button variant="outline" onClick={onLogout}>
+                Выйти
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <TabsContent value="tasks">
@@ -537,102 +572,6 @@ const ForemenPage = () => {
                                   required
                                 />
                               </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={task_form.control}
-                          name="workshop"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Цех</FormLabel>
-                              <Popover
-                                open={openWorkshop}
-                                onOpenChange={setOpenWorkshop}
-                              >
-                                <PopoverTrigger asChild>
-                                  <FormControl>
-                                    <Button
-                                      variant="outline"
-                                      role="combobox"
-                                      className={cn(
-                                        "w-full justify-between",
-                                        !field.value && "text-muted-foreground",
-                                      )}
-                                    >
-                                      {field.value ? (
-                                        <>
-                                          {foremenData.map(
-                                            (foreman: ForemanDto) => {
-                                              if (
-                                                foreman.foreman_id ===
-                                                field.value
-                                              ) {
-                                                return foreman.workshop;
-                                              }
-                                            },
-                                          )}
-                                        </>
-                                      ) : (
-                                        "Выберите цех"
-                                      )}
-                                      <ChevronsUpDown className="opacity-50" />
-                                    </Button>
-                                  </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[465px] p-0">
-                                  <Command>
-                                    <CommandInput
-                                      placeholder="Поиск..."
-                                      className="h-9"
-                                    />
-                                    <CommandList>
-                                      <CommandEmpty>Пусто</CommandEmpty>
-                                      <CommandGroup>
-                                        {foremenData
-                                          .filter(
-                                            (foreman: ForemanDto) =>
-                                              foreman.workshop !== "",
-                                          )
-                                          .map((foreman: ForemanDto) => (
-                                            <CommandItem
-                                              value={`${foreman.workshop}${foreman.foreman_id}${foreman.full_name}`}
-                                              key={`${foreman.foreman_id}-w`}
-                                              onSelect={() => {
-                                                task_form.setValue(
-                                                  "workshop",
-                                                  foreman.foreman_id,
-                                                );
-                                                setOpenWorkshop(false);
-                                              }}
-                                            >
-                                              <div className="flex items-center space-x-1">
-                                                <span>{foreman.workshop}</span>
-                                                <span>
-                                                  ({foreman.foreman_id}
-                                                </span>
-                                                <span>
-                                                  <span className="text-cyan-400">{` ${foreman.full_name}`}</span>
-                                                  )
-                                                </span>
-                                              </div>
-                                              <Check
-                                                className={cn(
-                                                  "ml-auto",
-                                                  foreman.foreman_id ===
-                                                    field.value
-                                                    ? "opacity-100"
-                                                    : "opacity-0",
-                                                )}
-                                              />
-                                            </CommandItem>
-                                          ))}
-                                      </CommandGroup>
-                                    </CommandList>
-                                  </Command>
-                                </PopoverContent>
-                              </Popover>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -959,6 +898,19 @@ const ForemenPage = () => {
                             </FormItem>
                           )}
                         />
+                        <FormField
+                          control={foreman_form.control}
+                          name="password"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Пароль</FormLabel>
+                              <FormControl>
+                                <Input type="password" {...field} required />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       </div>
                       <Button type="submit" className="mt-4">
                         Добавить
@@ -1040,6 +992,19 @@ const ForemenPage = () => {
                             </FormItem>
                           )}
                         />
+                        <FormField
+                          control={technician_form.control}
+                          name="password"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Пароль</FormLabel>
+                              <FormControl>
+                                <Input type="password" {...field} required />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       </div>
                       <Button type="submit" className="mt-4">
                         Добавить
@@ -1049,6 +1014,9 @@ const ForemenPage = () => {
                 </DialogContent>
               </Dialog>
               <TechniciansTable />
+            </TabsContent>
+            <TabsContent value="notifications">
+              <NotificationsList />
             </TabsContent>
           </CardContent>
         </Tabs>
